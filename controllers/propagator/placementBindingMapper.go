@@ -4,22 +4,29 @@
 package propagator
 
 import (
-	policiesv1 "github.com/stolostron/governance-policy-propagator/api/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	policiesv1 "github.com/stolostron/governance-policy-propagator/api/v1"
 )
 
 func placementBindingMapper(c client.Client) handler.MapFunc {
 	return func(obj client.Object) []reconcile.Request {
+		// nolint: forcetypeassert
 		object := obj.(*policiesv1.PlacementBinding)
 		var result []reconcile.Request
+
+		log := log.WithValues("name", object.GetName(), "namespace", object.GetNamespace())
+
+		log.V(2).Info("Reconcile request for a PlacementBinding")
+
 		subjects := object.Subjects
 		for _, subject := range subjects {
 			if subject.APIGroup == policiesv1.SchemeGroupVersion.Group && subject.Kind == policiesv1.Kind {
-				log.Info("Found reconciliation request from placement binding...",
-					"Namespace", object.GetNamespace(), "Name", object.GetName(), "Policy-Name", subject.Name)
+				log.V(2).Info("Found reconciliation request from placement binding", "policyName", subject.Name)
+
 				request := reconcile.Request{NamespacedName: types.NamespacedName{
 					Name:      subject.Name,
 					Namespace: object.GetNamespace(),
@@ -27,6 +34,7 @@ func placementBindingMapper(c client.Client) handler.MapFunc {
 				result = append(result, request)
 			}
 		}
+
 		return result
 	}
 }
